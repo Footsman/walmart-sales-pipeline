@@ -1,0 +1,69 @@
+version: 2
+
+models:
+  - name: walmart_date_dim
+    description: "SCD1 date dimension. One row per calendar date in the sales data."
+    columns:
+      - name: date_id
+        description: "Date as YYYYMMDD integer. Primary key."
+        data_tests:
+          - unique
+          - not_null
+      - name: store_date
+        data_tests:
+          - not_null
+
+  - name: walmart_store_dim
+    description: "SCD1 store/department dimension. One row per store + dept pair."
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - store_id
+              - dept_id
+    columns:
+      - name: store_id
+        data_tests:
+          - not_null
+      - name: dept_id
+        data_tests:
+          - not_null
+      - name: store_type
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['A', 'B', 'C']
+
+  - name: walmart_fact_table
+    description: "SCD2 fact at store/dept/date grain. One row per version."
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - store_id
+              - dept_id
+              - date_id
+          config:
+            where: "is_current"
+    columns:
+      - name: fact_sk
+        description: "Surrogate key. Unique per version, not per business key."
+        data_tests:
+          - unique
+          - not_null
+      - name: store_id
+        data_tests:
+          - not_null
+      - name: date_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('walmart_date_dim')
+                field: date_id
+      - name: vrsn_start_date
+        data_tests:
+          - not_null
+      - name: is_current
+        data_tests:
+          - not_null
